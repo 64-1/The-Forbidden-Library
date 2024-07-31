@@ -33,6 +33,29 @@ class Genre(models.Model):
             ),
         ]
 
+class Language(models.Model):
+    """Model representing a Language (e.g. English, French, Japanese, etc.)"""
+    name = models.CharField(max_length=200,
+                            unique=True,
+                            help_text="Enter the book's natural language (e.g. English, French, Japanese etc.)")
+
+    def get_absolute_url(self):
+        """Returns the url to access a particular language instance."""
+        return reverse('language-detail', args=[str(self.id)])
+
+    def __str__(self):
+        """String for representing the Model object (in Admin site etc.)"""
+        return self.name
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                Lower('name'),
+                name='language_name_case_insensitive_unique',
+                violation_error_message = "Language already exists (case insensitive match)"
+            ),
+        ]
+
 class Book(models.Model):
     """Model representing a book (but not a specific copy of a book)"""
     title = models.CharField(max_length=200)
@@ -45,6 +68,7 @@ class Book(models.Model):
     )
     isbn = models.CharField('ISBN', max_length=13,
                             unique=True,
+                            blank=True,
                             help_text='13 Character <a href="https://www.isbn-international.org/content/what-isbn'
                                       '">ISBN number</a>')
     
@@ -53,6 +77,9 @@ class Book(models.Model):
     genre = models.ManyToManyField(
         Genre, help_text="Select a genre for this book"
     )
+
+    language = models.ForeignKey(
+    'Language', on_delete=models.SET_NULL, null=True)
 
     age_restrictions = models.PositiveIntegerField(
         default=0, help_text="Enter the minimum age restriction for this book (0 for no restriction)"
@@ -101,7 +128,7 @@ class BookInstance(models.Model):
 class Author(models.Model):
     """Model representing an author."""
     first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     date_of_death = models.DateField('Died', null=True, blank=True)
 
