@@ -7,6 +7,8 @@ from django.urls import reverse # Used in get_absolute_url() to get URL for spec
 from django.db.models import UniqueConstraint # Constrains fields to unique values
 from django.db.models.functions import Lower # Returns lower cased value of field 
 
+from django.core.exceptions import ValidationError
+
 class Genre(models.Model):
 
     """Model representing a book store"""
@@ -67,10 +69,16 @@ class Book(models.Model):
         max_length=1000, help_text="Enter a brief description of the book"
     )
     isbn = models.CharField('ISBN', max_length=13,
-                            unique=True,
-                            blank=True,
-                            help_text='13 Character <a href="https://www.isbn-international.org/content/what-isbn'
+                            unique=False,
+                            help_text='13 Character (Input NA if not applicable) <a href="https://www.isbn-international.org/content/what-isbn'
                                       '">ISBN number</a>')
+    def save(self, *arg, **kwargs):
+        # Perform additional validation on isbn
+        if self.isbn != "NA":
+            if Book.objects.filter(isbn=self.isbn).exists():
+               raise ValidationError("ISBN must be unique")
+            
+        super(Book, self).save(*arg, **kwargs)
     
     # ManyToManyField used because genre can contain many books. Books can cover many genres.
     # Genre class has already been defined so we can specify the object above.
@@ -92,6 +100,12 @@ class Book(models.Model):
     def get_absolute_url(self):
         """Returns the URL to access a detail record for this book."""
         return reverse('book-detail', args=[str(self.id)])
+    
+    def display_genre(self):
+        """Create a string for the Genre. This is required to display genre in Admin"""
+        return ', '.join(genre.name for genre in self.genre.all()[:3])
+    
+    display_genre.short_description = 'Genre'
 
 
 class BookInstance(models.Model):
@@ -100,7 +114,7 @@ class BookInstance(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4,
                           help_text="Unique ID for this particular book across whole library")
     book = models.ForeignKey('Book', on_delete=models.RESTRICT, null=True)
-    imprint = models.CharField(max_length=200)
+    book_lender_uid = models.CharField(max_length=9)
     due_back = models.DateField(null=True, blank=True)
 
     LOAN_STATUS = (
@@ -127,8 +141,8 @@ class BookInstance(models.Model):
 
 class Author(models.Model):
     """Model representing an author."""
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100, blank=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
     date_of_death = models.DateField('Died', null=True, blank=True)
 
